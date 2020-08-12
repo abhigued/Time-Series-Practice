@@ -44,3 +44,8 @@ SalesTS = ts(AntiBody$Sales, start=c(1991,07),frequency=12)
 autoplot(SalesTS) + ggtitle("Antibiotics sales each month") + xlab("Year") + ylab("Sales")
 ```
 
+```{r}
+Fastenal = read.csv("http://course1.winona.edu/bdeppa/FIN%20335/Datasets/Fastenal%20Sales%20(2004-2013).csv")
+names(Fastenal)
+```
+
