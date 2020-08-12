@@ -1,0 +1,24 @@
+---
+title: "Time Series Practice"
+author: "Abhishek Gupta"
+date: "12/08/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Time Series Practice Session :
+Let's learn time series forecasting in R.
+
+First Time Series :
+```{r, echo=FALSE}
+y<- ts(c(43,54,87,21,42), start=2012)
+print(y, calendar=TRUE)
+u <- sample(1:100, 6, replace=FALSE)
+print(ts(u, start=2013), calendar=TRUE)
+
+```
