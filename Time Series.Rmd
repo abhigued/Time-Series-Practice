@@ -8,6 +8,8 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -22,3 +24,14 @@ u <- sample(1:100, 6, replace=FALSE)
 print(ts(u, start=2013), calendar=TRUE)
 
 ```
+```{r, echo=FALSE}
+melsyd = read.csv("http://course1.winona.edu/bdeppa/FIN%20335/Datasets/MelSyd.csv")
+names(melsyd)
+```
+```{r, echo=FALSE}
+Econ = melsyd$Economy.Class
+Econ = ts(Econ,start=c(1987,25),frequency=52)
+
+autoplot(Econ) + ggtitle("Melbourne-Sydney Economy Air Passengers") + xlab("Year") + ylab("Thousands of Passengers") 
+```
+
