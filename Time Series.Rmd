@@ -37,7 +37,8 @@ Econ = melsyd$Economy.Class
 Econ = ts(Econ,start=c(1987,25),frequency=52)
 autoplot(Econ) + ggtitle("Melbourne-Sydney Economy Air Passengers") + xlab("Year") + ylab("Thousands of Passengers") 
 ```
-## Antibody Sales Data
+
+### Antibody Sales Data
 ```{r, echo=FALSE}
 AntiBody = read.csv(file="http://course1.winona.edu/bdeppa/FIN%20335/Datasets/AntibioticSales.csv")
 names(AntiBody)
@@ -57,12 +58,14 @@ TotSales = ts(TotSales,start=2004,frequency=12)
 TotSales = TotSales/1000000
 autoplot(TotSales) + ggtitle("Total Monthly Sales (2004-2013)") + xlab("Year") + ylab("Monthly Sales in Millions")
 ```
+
 ## Trends, Seasonality and Cyclicity
 
 ```{r, echo=FALSE}
 ggseasonplot(TotSales) + ylab("Sales in Millions") + xlab("Month")
 
 ```
+
 ## Switching to the 3rd Edition
 ```{r}
 y <-  tsibble(Year = 2015:2019, Observation = c(123,39,78,52,110), index = Year)
@@ -81,5 +84,183 @@ PBS
 ```{r}
 PBS %>% filter(ATC2 == 'A10')
 ```
+```{r}
+PBS %>%
+  filter(ATC2=="A10") %>%
+  select(Month, Concession, Type, Cost)
+```
+```{r}
+PBS %>%
+  filter(ATC2=="A10") %>%
+  select(Month, Concession, Type, Cost) %>%
+  summarise(TotalC = sum(Cost))
+```
+```{r}
+PBS %>%
+  filter(ATC2=="A10") %>%
+  select(Month, Concession, Type, Cost) %>%
+  summarise(TotalC = sum(Cost)) %>%
+  mutate(Cost = TotalC/1e6)
+```
 
+```{r}
+PBS %>%
+  filter(ATC2=="A10") %>%
+  select(Month, Concession, Type, Cost) %>%
+  summarise(TotalC = sum(Cost)) %>%
+  mutate(Cost = TotalC/1e6) -> a10
+```
+```{r}
+prison <- readr::read_csv("https://OTexts.com/fpp3/extrafiles/prison_population.csv")
+prison
+```
+```{r}
+prison <- prison %>%
+  mutate(quarter = yearquarter(date))
+
+prison
+```
+```{r}
+ prison%>%
+  select(-date) %>%
+  as_tsibble(key = c(state, gender, legal, indigenous), index = quarter)
+```
+###  Time Plots
+
+```{r}
+melsyd_economy <- ansett %>%
+  filter(Airports == "MEL-SYD", Class=="Economy")
+melsyd_economy %>%
+  autoplot(Passengers) +
+    labs(title = "Ansett economy class passengers", subtitle = "Melbourne-Sydney") +
+    xlab("Year")
+```
+
+```{r}
+a10 %>% autoplot(Cost) +
+  ggtitle("Antidiabetic drug sales") +
+  ylab("$ million") + xlab("Year")
+```
+
+```{r}
+a10 %>% gg_season(Cost, labels = "both") +
+  ylab("$ million") +
+  ggtitle("Seasonal plot: antidiabetic drug sales")
+```
+
+```{r}
+vic_elec %>% gg_season(Demand, period="day") + theme(legend.position = "none")
+```
+```{r}
+vic_elec %>% gg_season(Demand, period="week") + theme(legend.position = "none")
+```
+```{r}
+vic_elec %>% gg_season(Demand, period="year")
+```
+```{r}
+vic_elec
+```
+```{r}
+a10 %>%
+  gg_subseries(Cost) +
+    ylab("$ million") +
+    xlab("Year") +
+    ggtitle("Seasonal subseries plot: antidiabetic drug sales")
+```
+```{r}
+tourism
+```
+```{r}
+holidays <- tourism %>%
+  filter(Purpose == "Holiday") %>%
+  group_by(State) %>%
+  summarise(Trips = sum(Trips))
+
+holidays
+```
+```{r}
+  holidays %>% autoplot(Trips) +
+  ylab("thousands of trips") + xlab("Year") +
+  ggtitle("Australian domestic holiday nights")
+```
+
+```{r}
+holidays %>% gg_season(Trips) +
+  ylab("thousands of trips") +
+  ggtitle("Australian domestic holiday nights")
+```
+```{r}
+holidays %>%
+  gg_subseries(Trips) + ylab("thousands of trips") +
+  ggtitle("Australian domestic holiday nights")
+```
+
+### Scatter Plot
+
+```{r}
+vic_elec %>%
+  filter(year(Time) == 2014) %>%
+  autoplot(Demand) +
+    xlab("Year: 2014") + ylab(NULL) +
+    ggtitle("Half-hourly electricity demand: Victoria, Australia")
+```
+
+```{r}
+vic_elec %>%
+  filter(year(Time) == 2014) %>%
+  autoplot(Temperature) +
+    xlab("Year: 2014") + ylab(NULL) +
+    ggtitle("Half-hourly temperatures: Melbourne, Australia")
+```
+```{r}
+vic_elec %>%
+  filter(year(Time) == 2014) %>%
+  ggplot(aes(x = Temperature, y = Demand)) +
+    geom_point() +
+    ylab("Demand (GW)") + xlab("Temperature (Celsius)")
+```
+```{r}
+visitors <- tourism %>%
+  group_by(State) %>%
+  summarise(Trips = sum(Trips))
+visitors %>%
+  ggplot(aes(x = Quarter, y = Trips)) +
+    geom_line() +
+    facet_grid(vars(State), scales = "free_y") +
+    ylab("Number of visitor nights each quarter (millions)")
+```
+```{r}
+visitors %>%
+  spread(State, Trips) %>%
+  GGally::ggpairs(columns = 2:9)
+```
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+recent_production %>% gg_lag(Beer, geom="point")
+```
+```{r}
+recent_production
+```
+
+### Autocorrelation Function
+```{r}
+recent_production %>% ACF(Beer, lag_max = 9)
+```
+```{r}
+recent_production %>% ACF(Beer) %>% autoplot()
+```
+```{r}
+a10 %>% ACF(Cost, lag_max = 48) %>% autoplot()
+```
+
+### White Noise
+```{r}
+set.seed(30)
+y <- tsibble(sample = 1:50, wn = rnorm(50), index = sample)
+y %>% autoplot(wn) + ggtitle("White noise")
+```
+```{r}
+y %>% ACF(wn) %>% autoplot()
+```
 
