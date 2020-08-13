@@ -3,8 +3,8 @@ title: "Time Series Practice"
 author: "Abhishek Gupta"
 date: "12/08/2020"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -64,13 +64,22 @@ ggseasonplot(TotSales) + ylab("Sales in Millions") + xlab("Month")
 
 ```
 ## Switching to the 3rd Edition
-```{r, echo=FALSE}
+```{r}
 y <-  tsibble(Year = 2015:2019, Observation = c(123,39,78,52,110), index = Year)
 y
 ```
-```{r, echo=FALSE}
- z <-  tsibble(YearMonth=rep(yearmonth("2015 May") + 0:4), Observation = c(123,39,78,52,110), index = YearMonth)
-z
+```{r}
+ w <-  tsibble(Month=yearmonth("2015 May") + 0:4, Observation = c(123,39,78,52,110), index = Month)
+w
+```
+```{r}
+olympic_running
+```
+```{r}
+PBS
+```
+```{r}
+PBS %>% filter(ATC2 == 'A10')
 ```
 
 
