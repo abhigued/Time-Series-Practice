@@ -1,0 +1,121 @@
+---
+title: "Chapter 2 Exercise"
+author: "Abhishek Gupta"
+date: "13/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
+library(fpp3)
+library(fpp2)
+library(tsibble)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+```{r}
+gafa_stock
+y <- gafa_stock
+```
+```{r}
+Dummy <- gafa_stock %>%  filter(Symbol == "GOOG")
+Dummy %>% autoplot(Close  - Open)
+```
+```{r}
+A <- c()
+for (val in unique(gafa_stock$Symbol))
+{
+  Dummy <- gafa_stock %>% filter(Symbol == val)
+  Dummy_1 <- Dummy %>% filter(Close ==   max(Dummy$Close))
+  A<- append(A, Dummy_1$Date)
+}
+print(data.frame('Symbol'=unique(gafa_stock$Symbol), 'Date with Maximum Closing'=A))
+
+```
+```{r}
+autoplot(gafa_stock)
+```
+```{r}
+PBS
+```
+```{r}
+PBS %>% filter(ATC2 == 'A01') %>% summarise(TotalC = sum(Cost)) %>% mutate(TotalCost = TotalC/1e6) %>% autoplot(TotalCost)
+```
+```{r}
+vic_elec
+```
+```{r}
+vic_elec%>% autoplot()
+```
+
+```{r}
+PP <- pelt %>% as_tibble(index=Year)
+PP
+```
+```{r}
+PP %>% ts.plot(gpars=list(col=rainbow(2)))
+```
+```{r}
+PP %>%
+  pivot_longer(-Year, names_to="Key", values_to="Value") %>%
+  ggplot(aes(x = Year, y = Value, colour = Key)) +
+    geom_line() 
+```
+
+```{r}
+dim.data.frame(PP$Year)[2]
+```
+## Question 2
+
+```{r}
+tute1 <- readr::read_csv("tute1.csv")
+View(tute1)
+```
+
+```{r}
+mytimeseries <- tute1 %>%
+  mutate(Quarter = yearmonth(Quarter)) %>%
+  as_tsibble(index = Quarter)
+mytimeseries
+```
+```{r}
+mytimeseries %>%
+  pivot_longer(-Quarter, names_to="Key", values_to="Value") %>%
+  ggplot(aes(x = Quarter, y = Value, colour = Key)) +
+    geom_line() +
+    facet_grid(vars(Key), scales = "free_y")
+```
+
+## Question 3
+```{r}
+
+tourism_xl <- readxl::read_excel('tourism.xlsx')
+tourism_xl
+```
+```{r}
+tourism
+```
+
+
+```{r}
+tourism_xl_ts <- tourism_xl %>% mutate(Quarter=yearquarter(Quarter)) %>% as_tibble(index=Quarter)
+tourism_xl_ts
+```
+```{r}
+tourism_grouped<-tourism_xl_ts%>%group_by(Region, Purpose)%>%summarise(AverageTrips=mean(Trips),.groups='keep')%>%filter(AverageTrips==tourism_grouped$AverageTrips %>%max())
+tourism_grouped
+
+```
+```{r}
+tourism_xl_ts%>%group_by(State)%>%summarise(TotalTrips=sum(Trips),.groups='keep')
+```
+
+## Question 4
+
+```{r}
+
+```
+
+
