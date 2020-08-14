@@ -104,9 +104,8 @@ tourism_xl_ts <- tourism_xl %>% mutate(Quarter=yearquarter(Quarter)) %>% as_tibb
 tourism_xl_ts
 ```
 ```{r}
-tourism_grouped<-tourism_xl_ts%>%group_by(Region, Purpose)%>%summarise(AverageTrips=mean(Trips),.groups='keep')%>%filter(AverageTrips==tourism_grouped$AverageTrips %>%max())
-tourism_grouped
-
+tourism_grouped<-tourism_xl_ts%>%group_by(Region, Purpose)%>%summarise(AverageTrips=mean(Trips),.groups='keep')
+tourism_grouped%>%filter(AverageTrips==max(tourism_grouped$AverageTrips))
 ```
 ```{r}
 tourism_xl_ts%>%group_by(State)%>%summarise(TotalTrips=sum(Trips),.groups='keep')
@@ -115,7 +114,134 @@ tourism_xl_ts%>%group_by(State)%>%summarise(TotalTrips=sum(Trips),.groups='keep'
 ## Question 4
 
 ```{r}
-
+aus_production
+```
+```{r}
+aus_production%>%autoplot(Bricks)
+```
+```{r}
+pelt%>%autoplot(Lynx)
+```
+```{r}
+gafa_stock%>%autoplot(Close)
+```
+```{r}
+vic_elec%>%autoplot(Demand)+ggtitle('Demand Time Series Plot')+xlab('time')+ylab('Half Hourly Demand')
 ```
 
+## Question 5
+```{r}
+aus_arrivals
+```
+```{r}
+aus_arrivals%>%autoplot(Arrivals)
+```
+```{r}
+aus_arrivals%>% gg_season(Arrivals)
+```
+
+```{r}
+aus_arrivals%>%gg_subseries(Arrivals)
+```
+
+## Question 6
+```{r}
+aus_retail
+```
+
+```{r}
+set.seed(1)
+myseries <- aus_retail %>%
+ filter(`Series ID` == sample(aus_retail$`Series ID`,1))
+myseries
+```
+```{r}
+myseries%>%autoplot(Turnover)
+```
+```{r}
+myseries %>% gg_season(Turnover) 
+```
+
+```{r}
+myseries %>% gg_subseries(Turnover)
+```
+```{r}
+myseries%>%gg_lag(Turnover,geom='point')
+```
+```{r}
+myseries%>%ACF(Turnover, lag_max=100)%>%autoplot()
+```
+## Question 7
+
+```{r}
+myseries <- us_employment %>%filter(Title=='Total Private')
+myseries%>% autoplot(Employed)
+myseries%>%gg_season(Employed)
+myseries%>%gg_subseries(Employed)
+myseries%>%gg_lag(Employed,geom='point')
+myseries%>%ACF(Employed)%>%autoplot()
+```
+```{r}
+myseries <- aus_production
+myseries%>% autoplot(Bricks)
+myseries%>%gg_season(Bricks)
+myseries%>%gg_subseries(Bricks)
+myseries%>%gg_lag(Bricks,geom='point')
+myseries%>%ACF(Bricks)%>%autoplot()
+
+```
+```{r}
+myseries <- pelt
+myseries%>% autoplot(Hare)
+#myseries%>%gg_season(Hare)
+myseries%>%gg_subseries(Hare)
+myseries%>%gg_lag(Hare,geom='point')
+myseries%>%ACF(Hare)%>%autoplot()
+```
+```{r}
+myseries <- PBS %>% filter(ATC2 == 'H02')
+myseries%>% autoplot(Cost)
+myseries%>%gg_season(Cost)
+myseries%>%gg_subseries(Cost)
+myseries%>% filter(Concession=='Concessional', Type=='Co-payments', ATC1=='H') %>%gg_lag(Cost,geom='point')
+myseries%>% filter(Concession=='Concessional', Type=='Co-payments', ATC1=='H') %>% ACF(Cost) %>% autoplot()
+```
+```{r}
+myseries <- us_gasoline
+myseries%>% autoplot(Barrels)
+myseries%>%gg_season(Barrels)
+myseries%>%gg_subseries(Barrels)
+myseries%>% gg_lag(Barrels,geom='point')
+myseries%>% ACF(Barrels) %>% autoplot()
+```
+
+## Question 9
+```{r}
+myseries <- aus_livestock %>% filter(Animal == 'Pigs', State == 'Victoria', year(Month) >= 1990, year(Month) <= 1995)
+myseries%>% autoplot(Count)
+ACF_1 <- myseries%>% ACF(Count, lag_max=20)
+
+set.seed(30)
+y <- tsibble(sample = 1:100, wn = rnorm(100), index = sample)
+#y %>% autoplot(wn) + ggtitle("White noise")
+ACF_2 <- y %>% ACF(wn, lag_max=20)
+
+ACF_1$acf%>% plot(type='s',col='blue', ylim = c(-0.5, 1))
+ACF_2$acf%>% points(type='s',col='red')
+```
+
+## Question 10
+
+```{r}
+dgoog <- gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) >= 2018) %>%
+  mutate(trading_day = row_number()) %>%
+  update_tsibble(index = trading_day, regular = TRUE) %>%
+  mutate(diff = difference(Close))
+dgoog
+```
+
+```{r}
+dgoog %>% ACF(diff) %>% autoplot()
+```
 
