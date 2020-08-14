@@ -244,4 +244,15 @@ dgoog
 ```{r}
 dgoog %>% ACF(diff) %>% autoplot()
 ```
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+recent_production %>% gg_lag(Beer,lags=1, geom="point")
 
+plot(recent_production$Beer, lag(recent_production$Beer, 1), cex=0.7, col="blue")
+
+lag.plot(recent_production$Beer, lags=1, type='p', do.lines=FALSE, labels=FALSE)
+```
+```{r}
+plot(y=lag(recent_production$Beer, 1), x=recent_production$Beer)
+```
