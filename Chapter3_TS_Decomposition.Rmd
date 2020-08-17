@@ -62,5 +62,109 @@ aus_production %>% autoplot(box_cox(Gas, lambda))
 
 ## Time Series components
 
+```{r}
+us_retail_employment <- us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade") %>%
+  select(-Series_ID)
+us_retail_employment %>%
+  autoplot(Employed) +
+  xlab("Year") + ylab("Persons (thousands)") +
+  ggtitle("Total employment in US retail")
+```
+```{r}
+dcmp <- us_retail_employment %>%
+  model(STL(Employed))
+components(dcmp)
+```
+```{r}
+us_retail_employment %>%
+  autoplot(Employed, color='gray') +
+  autolayer(components(dcmp), trend, color='red') +
+  xlab("Year") + ylab("Persons (thousands)") +
+  ggtitle("Total employment in US retail")
+```
+```{r}
+components(dcmp) %>% autoplot() + xlab("Year")
+```
 
+### Seasonality Adjusted Data
+```{r}
+us_retail_employment %>%
+  autoplot(Employed, color='gray') +
+  autolayer(components(dcmp), season_adjust, color='blue') +
+  xlab("Year") + ylab("Persons (thousands)") +
+  ggtitle("Total employment in US retail")
+```
+
+## Moving Average
+
+```{r}
+global_economy %>%
+  filter(Country == "Australia") %>%
+  autoplot(Exports) +
+  xlab("Year") + ylab("% of GDP") +
+  ggtitle("Total Australian exports")
+```
+```{r}
+aus_exports <- global_economy %>%
+  filter(Country == "Australia") %>%
+  mutate(
+    `5-MA` = slide_dbl(Exports, mean, .size = 5, .align = "center")
+  )
+aus_exports
+```
+
+```{r}
+aus_exports %>%
+  autoplot(Exports) +
+  autolayer(aus_exports, `5-MA`, color='red') +
+  xlab("Year") + ylab("Exports (% of GDP)") +
+  ggtitle("Total Australian exports") +
+  guides(colour=guide_legend(title="series"))
+```
+
+### Moving Average of Moving Averages
+
+```{r}
+beer <- aus_production %>%
+  filter(year(Quarter) >= 1992) %>%
+  select(Quarter, Beer)
+beer_ma <- beer %>%
+  mutate(
+    `4-MA` = slide_dbl(Beer, mean, .size = 4, .align = "center-left"),
+    `2x4-MA` = slide_dbl(`4-MA`, mean, .size = 2, .align = "center-right")
+  )
+beer_ma
+```
+### Trend-Cycle with seasonal data
+
+```{r}
+us_retail_employment_ma <- us_retail_employment %>%
+  mutate(
+    `12-MA` = slide_dbl(Employed, mean, .size = 12, .align = "cr"),
+    `2x12-MA` = slide_dbl(`12-MA`, mean, .size = 2, .align = "cl")
+  )
+us_retail_employment_ma %>%
+  autoplot(Employed, color='gray') +
+  autolayer(us_retail_employment_ma, vars(`2x12-MA`), color='red') +
+  xlab("Year") + ylab("Persons (thousands)") +
+  ggtitle("Total employment in US retail")
+```
+
+## Classical Decomposition
+
+```{r}
+us_retail_employment %>%
+  model(classical_decomposition(Employed, type = "additive")) %>%
+  components() %>%
+  autoplot() + xlab("Year") +
+  ggtitle("Classical additive decomposition of total US retail employment")
+
+
+us_retail_employment %>%
+  model(classical_decomposition(Employed, type = "multiplicative")) %>%
+  components() %>%
+  autoplot() + xlab("Year") +
+  ggtitle("Classical multiplicative decomposition of total US retail employment")
+```
 
