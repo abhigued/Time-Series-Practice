@@ -52,7 +52,7 @@ print_retail %>%
     ggtitle("Turnover for the Australian print media industry")
 ```
 
-### Mathematical Transformations
+### Mathematical Transformations (Box-Cox Transformation)
 ```{r}
 lambda <- aus_production %>%
   features(Gas, features = guerrero) %>%
@@ -152,7 +152,7 @@ us_retail_employment_ma %>%
 ```
 
 ## Classical Decomposition
-
+### Additive & Multiplicative
 ```{r}
 us_retail_employment %>%
   model(classical_decomposition(Employed, type = "additive")) %>%
@@ -166,5 +166,51 @@ us_retail_employment %>%
   components() %>%
   autoplot() + xlab("Year") +
   ggtitle("Classical multiplicative decomposition of total US retail employment")
+```
+
+## X11 Additive Decomposition
+
+```{r}
+x11_dcmp <- us_retail_employment %>%
+  model(x11 = feasts:::X11(Employed, type = "additive")) %>%
+  components()
+autoplot(x11_dcmp) + xlab("Year") +
+  ggtitle("Additive X11 decomposition of US retail employment in the US")
+```
+```{r}
+x11_dcmp %>%
+  ggplot(aes(x = Month)) +
+  geom_line(aes(y = Employed, colour = "Data")) +
+  geom_line(aes(y = season_adjust, colour = "Seasonally Adjusted")) +
+  geom_line(aes(y = trend, colour = "Trend")) +
+  xlab("Year") + ylab("Persons (thousands)") +
+  ggtitle("Total employment in US retail") +
+  scale_colour_manual(values=c("gray","blue","red"),
+             breaks=c("Data","Seasonally Adjusted","Trend"))
+```
+
+```{r}
+x11_dcmp %>%
+  gg_subseries(seasonal)
+```
+
+## Seasonal Extraction in ARIMA Time Series (SEATS Decomposition)
+
+```{r}
+seats_dcmp <- us_retail_employment %>%
+  model(seats = feasts:::SEATS(Employed)) %>%
+  components()
+autoplot(seats_dcmp) + xlab("Year") +
+  ggtitle("SEATS decomposition of total US retail employment")
+```
+
+## Seasonal and Trend decomposition using Loess (STL Decomposition)
+
+```{r}
+us_retail_employment %>%
+  model(STL(Employed ~ trend(window=7) + season(window='periodic'),
+    robust = TRUE)) %>%
+  components() %>%
+  autoplot()
 ```
 
