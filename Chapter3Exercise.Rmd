@@ -1,0 +1,28 @@
+---
+title: "Chapter 3 Exercise"
+author: "Abhishek Gupta"
+date: "18/08/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
+library(fpp3)
+library(fpp2)
+library(tsibble)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+```{r}
+global_economy
+```
+```{r}
+print(length(unique(global_economy$Country)))
+
+global_economy %>% mutate(GDP_per_Capita = GDP/Population) %>%
+  filter(Country==unique(global_economy$Country)[1:10])%>% autoplot(GDP_per_Capita)
+```
+
