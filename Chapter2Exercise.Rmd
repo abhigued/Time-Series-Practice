@@ -155,9 +155,18 @@ myseries <- aus_retail %>%
  filter(`Series ID` == sample(aus_retail$`Series ID`,1))
 myseries
 ```
+
 ```{r}
 myseries%>%autoplot(Turnover)
 ```
+```{r}
+lambda <- myseries %>%
+  features(Turnover, features = guerrero) %>%
+  pull(lambda_guerrero)
+myseries %>% autoplot(box_cox(Turnover, lambda))
+```
+
+
 ```{r}
 myseries %>% gg_season(Turnover) 
 ```

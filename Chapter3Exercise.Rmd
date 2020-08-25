@@ -11,6 +11,7 @@ library(ggfortify)
 library(fpp3)
 library(fpp2)
 library(tsibble)
+library(fma)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -25,4 +26,154 @@ print(length(unique(global_economy$Country)))
 global_economy %>% mutate(GDP_per_Capita = GDP/Population) %>%
   filter(Country==unique(global_economy$Country)[1:10])%>% autoplot(GDP_per_Capita)
 ```
+## Question 2
+
+```{r}
+global_economy %>%
+  filter(Country=='United States')%>% autoplot(GDP)
+```
+```{r}
+US_GDP_per_Capita_adj <- global_economy %>%mutate(GDP_per_Capita_adj = GDP/(Population*CPI))%>%filter(Country=='United States')
+
+US_GDP_per_Capita_adj %>% autoplot(GDP_per_Capita_adj)
+```
+```{r}
+lambda <- US_GDP_per_Capita_adj %>%
+  features(GDP_per_Capita_adj, features = guerrero) %>%
+  pull(lambda_guerrero)
+US_GDP_per_Capita_adj %>% autoplot(box_cox(GDP_per_Capita_adj, lambda))
+```
+```{r}
+A <- aus_livestock %>% filter(Animal=='Bulls, bullocks and steers') %>% index_by(Month) %>% summarize(total_count=sum(Count))
+A %>% autoplot(total_count)
+```
+```{r}
+lambda <- A %>%
+  features(total_count, features = guerrero) %>%
+  pull(lambda_guerrero)
+A %>% autoplot(box_cox(total_count, lambda))
+```
+```{r}
+dcmp <- A %>%
+  model(STL(total_count))
+components(dcmp)
+```
+```{r}
+A %>%
+  autoplot(total_count, color='gray') +
+  autolayer(components(dcmp), trend, color='red') +
+  xlab("Month") + ylab("Total Count")
+```
+```{r}
+components(dcmp) %>% autoplot() + xlab("Month")
+```
+```{r}
+A %>%
+  autoplot(total_count, color='gray') +
+  autolayer(components(dcmp), season_adjust, color='blue') +
+  xlab("Month") + ylab("Total Count")
+```
+```{r}
+vic_elec%>%autoplot(Demand)
+```
+```{r}
+lambda <- vic_elec %>%
+  features(Demand, features = guerrero) %>%
+  pull(lambda_guerrero)
+vic_elec %>% autoplot(box_cox(Demand, lambda))
+
+A<- vic_elec
+```
+```{r}
+dcmp <- A %>%
+  model(STL(Demand))
+components(dcmp)
+```
+
+```{r}
+A %>%
+  autoplot(Demand, color='gray') +
+  autolayer(components(dcmp), trend, color='red') +
+  xlab("Time") + ylab("Demand")
+```
+```{r}
+components(dcmp) %>% autoplot() + xlab("Time")
+```
+
+```{r}
+A %>%
+  autoplot(Demand, color='gray') +
+  autolayer(components(dcmp), season_adjust, color='blue') +
+  xlab("Time") + ylab("Demand")
+```
+## Question 3
+
+```{r}
+canadian_gas %>% autoplot(Volume)
+lambda <- canadian_gas %>%
+  features(Volume, features = guerrero) %>%
+  pull(lambda_guerrero)
+canadian_gas %>% autoplot(box_cox(Volume, lambda))
+```
+
+## Question 4
+
+Chekc chapter 2 exercise.
+
+## Question 5
+
+```{r}
+aus_production
+
+aus_production %>% autoplot(Tobacco)
+lambda <- aus_production %>%
+  features(Tobacco, features = guerrero) %>%
+  pull(lambda_guerrero)
+aus_production %>% autoplot(box_cox(Tobacco, lambda))
+```
+```{r}
+ansett%>% filter(Airports=='MEL-SYD' & Class == 'Economy') %>% autoplot(Passengers)
+
+lambda <- ansett%>% filter(Airports=='MEL-SYD' & Class == 'Economy')%>%
+  features(Passengers, features = guerrero) %>%
+  pull(lambda_guerrero)
+
+ansett%>% filter(Airports=='MEL-SYD' & Class == 'Economy') %>% autoplot(box_cox(Passengers, lambda))
+```
+
+```{r}
+pedestrian %>% filter(Sensor=='Southern Cross Station') %>% autoplot(Count)
+
+lambda <- pedestrian %>% filter(Sensor=='Southern Cross Station') %>%   features(Count, features = guerrero) %>% pull(lambda_guerrero)
+
+pedestrian%>% filter(Sensor=='Southern Cross Station') %>% autoplot(box_cox(Count, lambda))
+```
+## Question 7
+```{r}
+fma::plastics%>%autoplot()
+```
+```{r}
+fma::plastics %>% as_tsibble() %>%
+  model(classical_decomposition(value, type = "additive")) %>%
+  components() %>%
+  autoplot() + xlab("Year") +
+  ggtitle("Classical additive decomposition of fma plastic sales")
+```
+```{r}
+dcmp <- fma::plastics %>% as_tsibble() %>%
+  model(classical_decomposition(value, type = "additive"))
+fma::plastics %>% as_tsibble() %>%
+  autoplot(value, color='gray') +
+  autolayer(components(dcmp), season_adjust, color='blue') +
+  xlab("Year") + ylab("Value") +
+  ggtitle("Seasonality Adjusted Sales")
+```
+```{r}
+A <- fma::plastics %>% as_tsibble(index=yearmonth(index))
+
+A %>% mutate()
+A
+```
+
+
 
