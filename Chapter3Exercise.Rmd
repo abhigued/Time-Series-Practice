@@ -12,6 +12,7 @@ library(fpp3)
 library(fpp2)
 library(tsibble)
 library(fma)
+library(imputeTS)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -175,5 +176,58 @@ A %>% mutate()
 A
 ```
 
+##Question 8
 
+```{r}
+dgoog <- gafa_stock %>%
+  filter(Symbol == "GOOG", year(Date) >= 2018) %>% as_tsibble()
+dgoog
+```
+```{r}
+dgoog_full <- dgoog %>% fill_gaps(.full = TRUE)
+dgoog_full
+```
+```{r}
+dgoog_full_diff <- na_kalman(dgoog_full) %>% mutate(diff = difference(Close))
+dgoog_full_diff
+```
 
+```{r}
+dgoog_full_diff %>%
+  model(classical_decomposition(diff, type = "additive")) %>%
+  components() %>%
+  autoplot() + xlab("Year")
+```
+## Question 10
+
+```{r}
+canadian_gas %>% autoplot()
+canadian_gas%>% gg_subseries()
+canadian_gas%>%gg_season()
+```
+
+```{r}
+canadian_gas %>%
+  model(STL(Volume ~ trend(window=12) + season(window='periodic'),
+    robust = TRUE)) %>%
+  components() %>%
+  autoplot()
+```
+```{r}
+canadian_gas %>%
+  model(STL(Volume ~ trend(window=12) + season(window='periodic'),
+    robust = TRUE)) %>% components() %>% gg_season(season_year)
+```
+```{r}
+canadian_gas %>%
+  model(STL(Volume ~ trend(window=12) + season(window='periodic'),
+    robust = TRUE)) %>% components() %>%
+  ggplot(aes(x = Month)) +
+  geom_line(aes(y = Volume, colour = "Data")) +
+  geom_line(aes(y = season_adjust, colour = "Seasonally Adjusted")) +
+  geom_line(aes(y = trend, colour = "Trend")) +
+  xlab("Year") + ylab("Volume") +
+  ggtitle("Canadian Gas Volume Production") +
+  scale_colour_manual(values=c("gray","blue","red"),
+             breaks=c("Data","Seasonally Adjusted","Trend"))
+```

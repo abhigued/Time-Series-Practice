@@ -11,6 +11,7 @@ library(ggfortify)
 library(fpp3)
 library(fpp2)
 library(tsibble)
+library(feasts)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
