@@ -1,0 +1,94 @@
+---
+title: "Chapter 4 Time Series Features, Exercise"
+author: "Abhishek Gupta"
+date: "11/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
+library(fpp3)
+library(fpp2)
+library(tsibble)
+library(fma)
+library(imputeTS)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+```{r}
+PBS
+```
+```{r}
+stat_PBS <- PBS %>% features(Cost, list(std=sd, mean=mean))
+
+stat_PBS
+
+Con <- stat_PBS[which.max(stat_PBS$mean),]$Concession
+Typ <- stat_PBS[which.max(stat_PBS$mean),]$Type
+ATC1v <- stat_PBS[which.max(stat_PBS$mean),]$ATC1
+ATC2v <- stat_PBS[which.max(stat_PBS$mean),]$ATC2
+
+PBS %>% filter(Concession == Con, Type == Typ, ATC1 == ATC1v, ATC2 == ATC2v) %>% autoplot(Cost)
+
+Con <- stat_PBS[which.min(stat_PBS$mean),]$Concession
+Typ <- stat_PBS[which.min(stat_PBS$mean),]$Type
+ATC1v <- stat_PBS[which.min(stat_PBS$mean),]$ATC1
+ATC2v <- stat_PBS[which.min(stat_PBS$mean),]$ATC2
+
+PBS %>% filter(Concession == Con, Type == Typ, ATC1 == ATC1v, ATC2 == ATC2v) %>% autoplot(Cost)
+
+
+```
+## Question 2
+
+```{r}
+tourism_features <- tourism %>%
+  features(Trips, feat_stl)
+tourism_features
+```
+
+```{r}
+names(tourism_features)
+```
+
+```{r}
+tourism_features %>% select_at(vars(contains("season"), State)) %>%
+  mutate(
+    seasonal_peak_year = glue::glue("Q{seasonal_peak_year+1}"),
+    seasonal_trough_year = glue::glue("Q{seasonal_trough_year+1}"),
+  ) %>%
+  GGally::ggpairs(mapping = aes(colour=State))
+```
+
+## Question 3
+
+```{r}
+library(broom)
+PBS_features <- PBS %>%
+  features(Cost, feat_stl)
+pcs <- PBS_features  %>%
+  select(-Concession, -Type, -ATC1, -ATC2)
+pcs_scaled <-  data.frame(apply(pcs,2,scale))
+Sample.scaled.2 <- data.frame(t(na.omit(t(pcs_scaled))))
+pca.Sample.2 <- prcomp(Sample.scaled.2, retx=TRUE) %>% augment(PBS_features)
+pca.Sample.2 %>%
+  ggplot(aes(x=.fittedPC1, y=.fittedPC2, col=Concession)) +
+  geom_point() + theme(aspect.ratio=1)
+```
+```{r}
+outliers <- pca.Sample.2 %>%
+  filter(.fittedPC1 < -20) %>%
+  select(Concession, Type, ATC1, ATC2, .fittedPC1, .fittedPC2)
+outliers
+outliers %>%
+  left_join(PBS, by = c("Concession", "Type", "ATC1", "ATC2")) %>%
+  mutate(Series = glue::glue("{Concession}", "{Type}", "{ATC1}", "{ATC2}", .sep = "\n\n")) %>%
+  ggplot(aes(x = Month, y = Cost)) +
+    geom_line() +
+    facet_grid(Series ~ ., scales='free') +
+    ggtitle("Outlying time series in PC space")
+```
+
