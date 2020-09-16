@@ -1,0 +1,388 @@
+---
+title: "Chapter 5 Forecaster's Toolbox"
+author: "Abhishek Gupta"
+date: "15/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
+library(fpp3)
+library(fpp2)
+library(tsibble)
+library(fma)
+library(imputeTS)
+knitr::opts_chunk$set(echo = TRUE)
+```
+# A Tidy workflow
+
+## Visualizing Time Series
+
+```{r}
+global_economy %>%
+  filter(Country=="Sweden") %>%
+  autoplot(GDP) +
+    ggtitle("GDP for Sweden") + ylab("$US billions")
+```
+## Define the model
+
+```{r}
+TSLM(GDP ~ trend())
+```
+
+## Train the model
+
+```{r}
+fit <- global_economy %>%
+  model(trend_model = TSLM(GDP ~ trend()))
+```
+```{r}
+fit
+```
+## Evaluate
+
+## Forecast
+
+```{r}
+fit %>% forecast(h = "3 years")
+```
+```{r}
+fit %>% forecast(h = "3 years") %>%
+  filter(Country=="Sweden") %>%
+  autoplot(global_economy) +
+    ggtitle("GDP for Sweden") + ylab("$US billions")
+```
+# Some simple forecasting methods
+
+```{r}
+bricks <- aus_production %>% filter(between(year(Quarter), 1970, 2004))
+bricks
+```
+
+## Average Method
+
+```{r}
+fit <- bricks %>% model(MEAN(Bricks))
+fit %>% forecast(h = "5 years") %>%
+  autoplot(bricks)
+```
+## Naive Method
+
+```{r}
+bricks %>% model(NAIVE(Bricks)) %>% forecast(h ="5 years") %>% autoplot(bricks)
+```
+## Seasonal Naive Method
+
+```{r}
+bricks %>% model(SNAIVE(Bricks ~ lag("year"))) %>% forecast(h="5 years") %>%autoplot(bricks)
+```
+
+## Drift Method
+
+```{r}
+bricks %>% model(RW(Bricks ~ drift())) %>% forecast(h='10 years')%>% autoplot(bricks)
+```
+## Example 1
+```{r}
+# Set training data from 1992 to 2006
+train <- aus_production %>% filter_index("1992 Q1" ~ "2006 Q4")
+# Fit the models
+beer_fit <- train %>%
+  model(
+    Mean = MEAN(Beer),
+    `Naïve` = NAIVE(Beer),
+    `Seasonal naïve` = SNAIVE(Beer)
+  )
+# Generate forecasts for 14 quarters
+beer_fc <- beer_fit %>% forecast(h=14)
+# Plot forecasts against actual values
+beer_fc %>%
+  autoplot(train, level = NULL) +
+    autolayer(filter_index(aus_production, "2007 Q1" ~ .), color = "black") +
+    ggtitle("Forecasts for quarterly beer production") +
+    xlab("Year") + ylab("Megalitres") +
+    guides(colour=guide_legend(title="Forecast"))
+```
+## Example 2
+
+```{r}
+# Re-index based on trading days
+google_stock <- gafa_stock %>%
+  filter(Symbol == "GOOG") %>%
+  mutate(day = row_number()) %>%
+  update_tsibble(index = day, regular = TRUE)
+# Filter the year of interest
+google_2015 <- google_stock %>% filter(year(Date) == 2015)
+# Fit the models
+google_fit <- google_2015 %>%
+  model(
+    Mean = MEAN(Close),
+    `Naïve` = NAIVE(Close),
+    Drift = NAIVE(Close ~ drift())
+  )
+# Produce forecasts for the 19 trading days in January 2015
+google_fc <- google_fit %>% forecast(h = 19)
+# A better way using a tsibble to determine the forecast horizons
+google_jan_2016 <- google_stock %>%
+  filter(yearmonth(Date) == yearmonth("2016 Jan"))
+google_fc <- google_fit %>% forecast(google_jan_2016)
+# Plot the forecasts
+google_fc %>%
+  autoplot(google_2015, level = NULL) +
+    autolayer(google_jan_2016, Close, color='black') +
+    ggtitle("Google stock (daily ending 31 Dec 2015)") +
+    xlab("Day") + ylab("Closing Price (US$)") +
+    guides(colour=guide_legend(title="Forecast"))
+```
+# Fitted values and Residuals
+
+## Residuals
+
+```{r}
+augment(beer_fit)
+```
+
+# Residual Diagnostics
+
+```{r}
+google_2015 %>% autoplot(Close) +
+  xlab("Day") + ylab("Closing Price (US$)") +
+  ggtitle("Google Stock in 2015")
+```
+
+```{r}
+aug <- google_2015 %>% model(NAIVE(Close)) %>% augment()
+aug %>% autoplot(.resid) + xlab("Day") + ylab("") +
+  ggtitle("Residuals from naïve method")
+```
+```{r}
+aug %>%
+  ggplot(aes(x = .resid)) +
+  geom_histogram() +
+  ggtitle("Histogram of residuals")
+```
+```{r}
+aug %>% ACF(.resid) %>% autoplot() + ggtitle("ACF of residuals")
+```
+```{r}
+google_2015 %>% model(NAIVE(Close)) %>% gg_tsresiduals()
+```
+## Portmanteau tests for autocorrelation 
+
+```{r}
+# lag=h and fitdf=K
+aug %>% features(.resid, box_pierce, lag=10, dof=0)
+```
+
+
+```{r}
+aug %>% features(.resid, ljung_box, lag=10, dof=0)
+```
+
+```{r}
+fit <- google_2015 %>% model(RW(Close~drift()))
+fit %>% tidy()
+```
+
+```{r}
+augment(fit) %>% features(.resid, ljung_box, lag=10, dof=1)
+```
+
+# Distributional Forecasts and Prediction Intervals
+
+## Multistep prediction interval: Benchmark methods
+
+```{r}
+google_2015 %>%
+  model(NAIVE(Close)) %>%
+  forecast(h = 10) %>%
+  hilo()
+```
+## Prediction intervals from bootstrapped residuals
+
+```{r}
+fit <- google_2015 %>%
+  model(NAIVE(Close))
+sim <- fit %>% generate(h = 30, times = 5, bootstrap = TRUE)
+sim
+```
+
+```{r}
+google_2015 %>%
+  ggplot(aes(x = day)) +
+  geom_line(aes(y = Close)) +
+  geom_line(aes(y = .sim, colour = as.factor(.rep)), data = sim) +
+  ggtitle("Google closing stock price") +
+  guides(col = FALSE)
+```
+```{r}
+fc <- fit %>% forecast(h = 30, bootstrap = TRUE)
+fc
+```
+```{r}
+fc %>% autoplot(google_2015) +
+  ggtitle("Google closing stock price")
+```
+
+# Forecasting using transformations
+
+## Forecasting with constraints
+
+```{r}
+scaled_logit <- new_transformation(
+  transformation = function(x, lower=0, upper=1){
+    log((x-lower)/(upper-x))
+  },
+  inverse = function(x, lower=0, upper=1){
+    (upper-lower)*exp(x)/(1+exp(x)) + lower
+  }
+)
+```
+
+## Bias Adjustment
+
+```{r}
+eggs <- as_tsibble(fma::eggs)
+eggs %>%
+  model(RW(log(value) ~ drift())) %>%
+  forecast(h=50) %>%
+  autoplot(eggs, level = 80, point_forecast = lst(mean, median))
+```
+# Forecasting with Decomposition
+
+```{r}
+us_retail_employment <- us_employment %>%
+  filter(year(Month) >= 1990, Title == "Retail Trade")
+dcmp <- us_retail_employment %>%
+  model(STL(Employed ~ trend(window = 7), robust=TRUE)) %>%
+  components() %>%
+  select(-.model)
+dcmp %>%
+  model(NAIVE(season_adjust)) %>%
+  forecast() %>%
+  autoplot(dcmp) + ylab("New orders index") +
+  ggtitle("Naive forecasts of seasonally adjusted data")
+```
+```{r}
+fit_dcmp <- us_retail_employment %>%
+  model(stlf = decomposition_model(
+             STL(Employed ~ trend(window = 7), robust = TRUE),
+             NAIVE(season_adjust)))
+fit_dcmp %>%
+  forecast() %>%
+  autoplot(us_retail_employment)
+```
+```{r}
+fit_dcmp %>% gg_tsresiduals()
+```
+
+# Evaluating forecast accuracy
+
+## Function to subset a time series
+
+```{r}
+aus_production %>% filter(quarter(Quarter) == 1)
+```
+
+```{r}
+aus_production %>%
+  slice(n()-19:0)
+```
+
+```{r}
+aus_retail %>%
+  group_by(State, Industry) %>%
+  slice(1:12)
+```
+
+```{r}
+gafa_stock %>%
+  group_by(Symbol) %>%
+  top_n(1, Close)
+```
+## Forecast Errors
+
+```{r}
+recent_production <- aus_production %>% filter(year(Quarter) >= 1992)
+beer_train <- recent_production %>% filter(year(Quarter) <= 2007)
+
+beer_fit <- beer_train %>%
+  model(
+    Mean = MEAN(Beer),
+    `Naïve` = NAIVE(Beer),
+    `Seasonal naïve` = SNAIVE(Beer),
+    Drift = RW(Beer ~ drift())
+  )
+
+beer_fc <- beer_fit %>%
+  forecast(h = 10)
+
+beer_fc %>%
+  autoplot(filter(aus_production, year(Quarter) >= 1992), level = NULL) +
+  xlab("Year") + ylab("Megalitres") +
+  ggtitle("Forecasts for quarterly beer production") +
+  guides(colour=guide_legend(title="Forecast"))
+```
+```{r}
+accuracy(beer_fc, recent_production)
+
+```
+```{r}
+google_fit <- google_2015 %>%
+  model(
+    Mean = MEAN(Close),
+    `Naïve` = NAIVE(Close),
+    Drift = RW(Close ~ drift())
+  )
+
+google_fc <- google_fit %>%
+  forecast(google_jan_2016)
+
+google_fc %>%
+  autoplot(rbind(google_2015,google_jan_2016), level = NULL) +
+  xlab("Day") + ylab("Closing Price (US$)") +
+  ggtitle("Google stock price (daily ending 6 Dec 13)") +
+  guides(colour=guide_legend(title="Forecast"))
+```
+
+```{r}
+accuracy(google_fc, google_stock)
+```
+
+# Forecast validation
+
+```{r}
+# Time series cross-validation accuracy
+google_2015_tr <- google_2015 %>%
+  slice(1:(n()-1)) %>%
+  stretch_tsibble(.init = 3, .step = 1)
+fc <- google_2015_tr %>%
+  model(RW(Close ~ drift())) %>%
+  forecast(h=1)
+
+fc %>% accuracy(google_2015)
+
+# Residual accuracy
+google_2015 %>% model(RW(Close ~ drift())) %>% accuracy()
+```
+
+## Forecast Horizon Accuracy with Cross Validation
+
+```{r}
+google_2015_tr <- google_2015 %>%
+  slice(1:(n()-8)) %>%
+  stretch_tsibble(.init = 3, .step = 1)
+
+fc <- google_2015_tr %>%
+  model(RW(Close ~ drift())) %>%
+  forecast(h=8) %>%
+  group_by(.id) %>%
+  mutate(h = row_number()) %>%
+  ungroup()
+
+fc %>%
+  accuracy(google_2015, by = "h") %>%
+  ggplot(aes(x = h, y = RMSE)) + geom_point()
+```
+
