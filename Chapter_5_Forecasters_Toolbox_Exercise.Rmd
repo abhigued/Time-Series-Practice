@@ -1,0 +1,88 @@
+---
+title: "Chapter 5 Exercise"
+author: "Abhishek Gupta"
+date: "16/09/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
+library(fpp3)
+library(fpp2)
+library(tsibble)
+library(fma)
+library(imputeTS)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1
+
+```{r}
+aus_economy <- global_economy %>% filter(Country == 'Australia') %>% select(Year, GDP)
+aus_economy
+```
+```{r}
+# Fit the models
+aus_economy_fit <- aus_economy %>%
+  model(
+   `Drift` = RW(GDP ~ drift())
+  )
+# Generate forecasts for 14 quarters
+aus_economy_fc <- aus_economy_fit %>% forecast(h=14)
+# Plot forecasts against actual values
+aus_economy_fc %>%
+  autoplot(aus_economy, level = NULL) +
+  autolayer(aus_economy_fc) +
+    ggtitle("Forecasts for Annual Australian GDP") +
+    xlab("Year") + ylab("GDP") +
+    guides(colour=guide_legend(title="Forecast"))
+```
+
+```{r}
+aus_Brick <- aus_production %>% select(Quarter, Bricks) %>% filter_index("1956 Q1" ~ "2005 Q2")
+aus_Brick
+```
+
+```{r}
+# Fit the models
+aus_Brick_fit <- aus_Brick %>%
+  model(
+   
+   `Seasonal naïve` = SNAIVE(Bricks~lag("year")),
+   
+  )
+# Generate forecasts for 14 quarters
+aus_Brick_fc <- aus_Brick_fit %>% forecast(h=14)
+# Plot forecasts against actual values
+aus_Brick_fc %>%
+  autoplot(aus_Brick, level = NULL) +
+  autolayer(aus_Brick_fc) +
+    ggtitle("Forecasts for Annual Australian Brick Production") +
+    xlab("Year") + ylab("Bricks") +
+    guides(colour=guide_legend(title="Forecast"))
+```
+
+```{r}
+NSW_lamb <- aus_livestock %>% filter(State=='New South Wales', Animal =='Lambs')
+NSW_lamb
+```
+
+```{r}
+# Fit the models
+NSW_lamb_fit <- NSW_lamb %>%
+  model(
+   
+   `Seasonal naïve` = SNAIVE(Count~lag("year")),
+   
+  )
+# Generate forecasts for 14 quarters
+NSW_lamb_fc <- NSW_lamb_fit %>% forecast(h=14)
+# Plot forecasts against actual values
+NSW_lamb_fc %>%
+  autoplot(NSW_lamb, level = NULL) +
+  autolayer(aus_Brick_fc) +
+    ggtitle("Forecasts for Annual Australian Brick Production") +
+    xlab("Year") + ylab("Bricks") +
+    guides(colour=guide_legend(title="Forecast"))
+```
