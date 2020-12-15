@@ -3,11 +3,16 @@ title: "Time Series Practice"
 author: "Abhishek Gupta"
 date: "12/08/2020"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
+```{r}
+#tinytex::install_tinytex()
+```
 
-```{r setup, include=FALSE}
+
+
+```{r setup, include=TRUE}
 library(tidyverse)
 library(ggfortify)
 library(fpp3)
@@ -116,14 +121,11 @@ prison
 ```
 ```{r}
 prison <- prison %>%
-  mutate(quarter = yearquarter(date))
+  mutate(Quarter = yearquarter(Date)) %>%
+  select(-Date) %>%
+  as_tsibble(key = c(State, Gender, Legal, Indigenous), index = Quarter)
 
 prison
-```
-```{r}
- prison%>%
-  select(-date) %>%
-  as_tsibble(key = c(state, gender, legal, indigenous), index = quarter)
 ```
 ###  Time Plots
 
