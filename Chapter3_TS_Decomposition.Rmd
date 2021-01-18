@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(tidyverse)
-library(ggfortify)
+#library(ggfortify)
 library(fpp3)
 library(fpp2)
 library(tsibble)
@@ -106,11 +106,13 @@ global_economy %>%
   xlab("Year") + ylab("% of GDP") +
   ggtitle("Total Australian exports")
 ```
+
 ```{r}
+library(slider)
 aus_exports <- global_economy %>%
   filter(Country == "Australia") %>%
   mutate(
-    `5-MA` = slide_dbl(Exports, mean, .size = 5, .align = "center")
+    `5-MA` = slide_dbl(Exports, mean, , .before = 2, .after = 2)
   )
 aus_exports
 ```
@@ -175,6 +177,7 @@ us_retail_employment %>%
 x11_dcmp <- us_retail_employment %>%
   model(x11 = feasts:::X11(Employed, type = "additive")) %>%
   components()
+
 autoplot(x11_dcmp) + xlab("Year") +
   ggtitle("Additive X11 decomposition of US retail employment in the US")
 ```

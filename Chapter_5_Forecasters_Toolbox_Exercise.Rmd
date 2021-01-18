@@ -86,3 +86,333 @@ NSW_lamb_fc %>%
     xlab("Year") + ylab("Bricks") +
     guides(colour=guide_legend(title="Forecast"))
 ```
+```{r}
+dummy <- aus_retail %>% filter(Industry == 'Takeaway food services') %>% select(Month, Turnover) %>% summarise(`Total Turnover` = sum(Turnover))
+dummy 
+```
+```{r}
+# Fit the models
+Take_Away_fit <- dummy %>%
+  model(
+   
+   `Seasonal naïve` = SNAIVE(`Total Turnover`~lag("year")),
+   
+  )
+# Generate forecasts for 14 quarters
+Take_Away_fc <- Take_Away_fit %>% forecast(h=14)
+# Plot forecasts against actual values
+Take_Away_fc %>%
+  autoplot(dummy, level = NULL) +
+  autolayer(Take_Away_fc) +
+    ggtitle("Forecasts for Take Away Turnover") +
+    xlab("Year") + ylab("Turnover") +
+    guides(colour=guide_legend(title="Forecast"))
+```
+## Question 2
+
+```{r}
+gafa_stock$Symbol %>% unique()
+
+gafa_stock %>% filter(Symbol == "FB") %>% autoplot(Close)
+
+dummy <- gafa_stock %>% filter(Symbol == "FB") %>% mutate(day = row_number()) %>% update_tsibble(index = day, regular = TRUE)
+
+dummy
+```
+
+```{r}
+# Fit the models
+FB_fit <- dummy %>%
+  model(
+   
+   `Drift` = RW(`Close`~drift()),
+   
+  )
+# Generate forecasts for 14 quarters
+FB_fc <- FB_fit %>% forecast(h=20)
+# Plot forecasts against actual values
+FB_fc %>%
+  autoplot(dummy, level = NULL) +
+  autolayer(FB_fc) +
+      ggtitle("Forecasts for FB stock closing price") +
+    xlab("Year") + ylab("Closing Price") +
+    guides(colour=guide_legend(title="Forecast"))
+```
+## Question 3
+
+```{r}
+# Extract data of interest
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+# Define and estimate a model
+fit <- recent_production %>% model(SNAIVE(Beer))
+# Look at the residuals
+fit %>% gg_tsresiduals()
+# Look a some forecasts
+fit %>% forecast() %>% autoplot(recent_production)
+```
+```{r}
+Aus_GDP <- global_economy %>% filter(Country == 'Australia')
+Aus_GDP %>% autoplot(GDP)
+
+bricks <- aus_production %>% filter(between(year(Quarter), 1970, 2004))
+bricks
+
+Aus_GDP_fit <- Aus_GDP %>%
+  model(
+   
+   `Drift` = RW(`GDP`~drift()),
+   
+  )
+# Generate forecasts for 14 quarters
+Aus_GDP_fc <- Aus_GDP_fit %>% forecast(h=20)
+# Plot forecasts against actual values
+Aus_GDP_fc %>%
+  autoplot(Aus_GDP, level = NULL) +
+  autolayer(Aus_GDP_fc) +
+    guides(colour=guide_legend(title="Forecast"))
+
+aus_production %>% model(SNAIVE(Bricks ~ lag("year"))) %>% forecast(h="5 years") %>% autoplot(bricks)
+
+
+Bricks_fit <- bricks %>% model(SNAIVE(`Bricks`~lag("year")))
+# Generate forecasts for 14 quarters
+Bricks_fc <- Bricks_fit %>% forecast(h=20)
+# Plot forecasts against actual values
+Bricks_fc %>%
+  autoplot(bricks, level = NULL) +
+  autolayer(Bricks_fc) +
+    guides(colour=guide_legend(title="Forecast"))
+```
+## Question 4
+```{r}
+aus_livestock
+aus_livestock$State %>% unique()
+Livestock <- aus_livestock %>% filter(State == 'Victoria') %>% summarise(Total = sum(Count))
+Livestock
+
+Livestock_fit <- Livestock %>% model(SNAIVE(`Total`))
+# Generate forecasts for 14 quarters
+Livestock_fc <- Livestock_fit %>% forecast(h=20)
+# Plot forecasts against actual values
+Livestock_fc %>%
+  autoplot(Livestock, level = NULL) +
+  autolayer(Livestock_fc) +
+    guides(colour=guide_legend(title="Forecast"))
+```
+## Question 7
+
+```{r}
+set.seed(12345678)
+myts <- aus_retail %>%
+  filter(`Series ID` == sample(aus_retail$`Series ID`,1))
+
+myts_train <- myts %>%
+  filter(Month <= yearmonth("2010 Dec"))
+
+myts %>% autoplot(Turnover) +
+  autolayer(myts_train %>% select(Turnover), colour = "red")
+
+fit <- myts_train %>%
+  model(SNAIVE(`Turnover`))
+fc <- fit %>%
+  forecast()
+
+
+fit %>% accuracy()
+fc %>% accuracy(myts)
+
+fit %>% gg_tsresiduals()
+```
+## Question 8
+
+```{r}
+
+pigs <- aus_livestock %>% filter(Animal == 'Pigs') %>% summarise(`Total Pigs` = sum(Count))
+pigs
+pigs %>% autoplot()
+
+train <- pigs %>% slice(1:486)
+train
+
+test <- pigs %>% slice(487:558)
+test
+
+
+pigs_fit <- train %>%
+  model(RW(`Total Pigs`~drift()))
+
+pigs_fc <- pigs_fit %>% forecast(h = 72)
+
+# Plot the forecasts
+pigs_fc %>%
+  autoplot(train, level = NULL) +
+    autolayer(pigs_fc, Close) +
+  autolayer(test %>% select(`Total Pigs`), color="red")
+
+pigs_fit %>% accuracy()
+accuracy(pigs_fc, test)
+
+pigs_fit %>% gg_tsresiduals()
+```
+## Question 9
+
+```{r}
+hh_budget
+
+train <- hh_budget %>% slice(1:84) %>% filter(Country=='USA')
+train
+
+test <- hh_budget %>% slice(85:88) %>% filter(Country=='USA')
+test
+
+train %>% autoplot(Wealth)
+
+wealth_fit <- train %>%
+  model(SNAIVE(Wealth ~ lag("10year")))
+
+wealth_fc <- wealth_fit %>% forecast(h = 4)
+
+# Plot the forecasts
+wealth_fc %>%
+  autoplot(train, level = NULL) +
+    autolayer(wealth_fc, Close) +
+  autolayer(test %>% select(Wealth), color="red")
+
+wealth_fit %>% accuracy()
+accuracy(wealth_fc, test)
+
+wealth_fit %>% gg_tsresiduals()
+
+```
+## Question 11
+```{r}
+A <-  aus_production %>% select(Bricks) %>% filter(Bricks>=0)
+A
+A %>% autoplot()
+
+dcmp <-  A %>% model(STL(Bricks, robust=T))
+
+components(dcmp)
+
+components(dcmp) %>% autoplot() + xlab("Quarter Year")
+
+A %>% autoplot() + autolayer(components(dcmp) %>% select(season_adjust), color='red')
+
+SA <- components(dcmp) %>% select(season_adjust)
+
+SA_fit <- SA %>%
+  model(NAIVE(season_adjust))
+
+SA_fc <- SA_fit %>% forecast(h = 4)
+
+# Plot the forecasts
+SA_fc %>%
+  autoplot(SA, level = NULL) +
+    autolayer(SA_fc, season_adjust)
+
+SA_fit %>% accuracy()
+
+SA_fit %>% gg_tsresiduals()
+
+fit_dcmp <- A %>%
+  model(stlf = decomposition_model(
+    STL(Bricks, robust = TRUE),
+    NAIVE(season_adjust)
+  ))
+
+fit_dcmp %>%
+  forecast(h=10) %>%
+  autoplot(A)
+```
+```{r}
+gc_tourism <- tourism %>% filter(Region == 'Gold Coast') %>% summarise(Total = sum(Trips))
+gc_tourism
+
+gc_train_1 <- gc_tourism %>% slice(1:(n()-1))
+gc_train_1
+
+gc_train_2 <- gc_tourism %>% slice(1:(n()-2))
+gc_train_2
+
+gc_train_3 <- gc_tourism %>% slice(1:(n()-3))
+gc_train_3
+
+
+gc_train_1_fit <- gc_train_1 %>%
+  model(SNAIVE(Total))
+
+gc_train_1_fc <- gc_train_1_fit %>% forecast(h = 1)
+
+
+gc_tourism %>% autoplot(Total) + autolayer(gc_train_1_fc, Total)
+
+gc_train_1_fit %>% accuracy()
+accuracy(gc_train_1_fc, gc_tourism)
+
+gc_train_1_fit %>% gg_tsresiduals()
+
+gc_train_2_fit <- gc_train_2 %>%
+  model(SNAIVE(Total))
+
+gc_train_2_fc <- gc_train_2_fit %>% forecast(h = 1)
+
+
+gc_train_1 %>% autoplot(Total) + autolayer(gc_train_2_fc, Total)
+
+gc_train_2_fit %>% accuracy()
+accuracy(gc_train_2_fc, gc_train_1)
+
+gc_train_2_fit %>% gg_tsresiduals()
+
+gc_train_3_fit <- gc_train_3 %>%
+  model(SNAIVE(Total))
+
+gc_train_3_fc <- gc_train_3_fit %>% forecast(h = 1)
+
+
+gc_train_2 %>% autoplot(Total) + autolayer(gc_train_3_fc, Total)
+
+gc_train_3_fit %>% accuracy()
+accuracy(gc_train_3_fc, gc_train_2)
+
+gc_train_3_fit %>% gg_tsresiduals()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

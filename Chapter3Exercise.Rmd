@@ -119,7 +119,7 @@ canadian_gas %>% autoplot(box_cox(Volume, lambda))
 
 ## Question 4
 
-Chekc chapter 2 exercise.
+Check chapter 2 exercise.
 
 ## Question 5
 
