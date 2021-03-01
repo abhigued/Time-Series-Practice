@@ -1,0 +1,433 @@
+---
+title: "Chapter 7 Time Series Regression Models"
+author: "AG"
+date: "19/01/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggfortify)
+library(fpp3)
+library(fpp2)
+library(tsibble)
+library(fma)
+library(imputeTS)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The Linear Model
+### Linear Regression
+
+```{r}
+us_change
+
+us_change %>%
+  pivot_longer(c(Consumption, Income), names_to = "Series")
+
+us_change %>%
+  pivot_longer(c(Consumption, Income), names_to = "Series") %>%
+  autoplot(value) +
+  labs(y = "% change")
+
+
+us_change %>% pivot_longer(c(Consumption, Income), names_to = "Series") %>% ggplot(aes(x = Quarter, y = value)) + geom_line() + facet_grid(vars(Series))
+```
+
+```{r}
+us_change %>%
+  ggplot(aes(x = Income, y = Consumption)) +
+  labs(y = "Consumption (quarterly % change)", x = "Income (quarterly % change)") +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+```{r}
+us_change %>%
+  model(TSLM(Consumption ~ Income)) %>%
+  report()
+```
+
+```{r}
+us_change %>%
+  GGally::ggpairs(columns = 2:6)
+```
+
+## Least Square Estimation
+
+```{r}
+fit.consMR <- us_change %>%
+  model(tslm = TSLM(Consumption ~ Income + Production + Unemployment + Savings))
+report(fit.consMR)
+```
+
+###Fitted Values
+```{r}
+augment(fit.consMR) %>%
+  ggplot(aes(x = Quarter)) +
+  geom_line(aes(y = Consumption, colour = "Data")) +
+  geom_line(aes(y = .fitted, colour = "Fitted")) +
+  labs(y = NULL, title = "Percent change in US consumption expenditure") +
+  scale_color_manual(values=c(Data="black",Fitted="red")) +
+  guides(colour = guide_legend(title = NULL))
+```
+
+
+```{r}
+augment(fit.consMR) %>%
+  ggplot(aes(x = Consumption, y = .fitted)) +
+  geom_point() +
+  labs(y = "Fitted (predicted values)",
+       x = "Data (actual values)",
+       title = "Percent change in US consumption expenditure") +
+  geom_abline(intercept = 0, slope = 1)
+```
+
+## Evaluating the regression model
+
+
+### Plotting Residuals
+```{r}
+fit.consMR %>% gg_tsresiduals()
+```
+
+```{r}
+augment(fit.consMR) %>% features(.innov, ljung_box, lag = 10, dof = 5)
+```
+### Residual plots against predictors
+```{r}
+df <- left_join(us_change, residuals(fit.consMR), by = "Quarter")
+p1 <- ggplot(df, aes(x = Income, y = .resid)) +
+  geom_point() + labs(y = "Residuals")
+p2 <- ggplot(df, aes(x = Production, y = .resid)) +
+  geom_point() + labs(y = "Residuals")
+p3 <- ggplot(df, aes(x = Savings, y = .resid)) +
+  geom_point() + labs(y = "Residuals")
+p4 <- ggplot(df, aes(x = Unemployment, y = .resid)) +
+  geom_point() + labs(y = "Residuals")
+p1
+p2
+p3
+p4
+```
+
+### Residual plots against fitted values
+
+```{r}
+augment(fit.consMR) %>%
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point() + labs(x = "Fitted", y = "Residuals")
+```
+## Spurious Regression
+
+```{r}
+fit <- aus_airpassengers %>%
+  filter(Year <= 2011) %>%
+  left_join(guinea_rice, by = "Year") %>%
+  model(TSLM(Passengers ~ Production))
+report(fit)
+
+fit %>% gg_tsresiduals()
+```
+## Some Userful Predictions
+### Trend, Dummy Variable, Seasonal Dummy Variable
+
+```{r}
+recent_production <- aus_production %>%
+  filter(year(Quarter) >= 1992)
+recent_production %>%
+  autoplot(Beer) +
+  labs(y = "Megalitres")
+```
+
+```{r}
+fit_beer <- recent_production %>%
+  model(TSLM(Beer ~ trend() + season()))
+report(fit_beer)
+```
+```{r}
+augment(fit_beer) %>%
+  ggplot(aes(x = Quarter)) +
+  geom_line(aes(y = Beer, colour = "Data")) +
+  geom_line(aes(y = .fitted, colour = "Fitted")) +
+  scale_color_manual(values = c(Data = "black", Fitted = "red")) +
+  labs(y = "Megalitres", title = "Quarterly Beer Production") +
+  guides(colour = guide_legend(title = "Series"))
+```
+
+```{r}
+augment(fit_beer) %>%
+  ggplot(aes(x = Beer, y = .fitted, colour = factor(quarter(Quarter)))) +
+  geom_point() +
+  labs(y = "Fitted", x = "Actual values",
+       title = "Quarterly beer production") +
+  geom_abline(intercept = 0, slope = 1) +
+  guides(colour = guide_legend(title = "Quarter"))
+```
+### Fourier Transform
+```{r}
+fourier_beer <- recent_production %>%
+  model(TSLM(Beer ~ trend() + fourier(K = 2)))
+report(fourier_beer)
+```
+## Selecting predictors
+
+```{r}
+glance(fit.consMR) %>% select(adj_r_squared, CV, AIC, AICc, BIC)
+```
+
+## Forecasting with regression
+### Ex-ante vs Ex-posts forecast
+```{r}
+recent_production <- aus_production %>% filter(year(Quarter) >= 1992)
+fit_beer <- recent_production %>%
+  model(TSLM(Beer ~ trend() + season()))
+fc_beer <- forecast(fit_beer)
+fc_beer %>%
+  autoplot(recent_production) +
+  labs(title = "Forecasts of beer production using regression",
+       y = "megalitres")
+```
+
+### Scenario-based forecast
+```{r}
+fit_consBest <- us_change %>%
+  model(lm = TSLM(Consumption ~ Income + Savings + Unemployment))
+
+future_scenarios <- scenarios(
+  Increase = new_data(us_change, 4) %>% mutate(Income=1, Savings=0.5, Unemployment=0),
+  Decrease = new_data(us_change, 4) %>% mutate(Income=-1, Savings=-0.5, Unemployment=0),
+  names_to = "Scenario")
+
+fc <- forecast(fit_consBest, new_data = future_scenarios)
+```
+
+
+```{r}
+us_change %>%
+  autoplot(Consumption) +
+  autolayer(fc) +
+  labs(y = "% change in US consumption")
+```
+### Prediction Intervals
+
+```{r}
+fit_cons <- us_change %>%
+  model(TSLM(Consumption ~ Income))
+new_cons <- scenarios(
+  "Average increase" = new_data(us_change, 4) %>% mutate(Income = mean(us_change$Income)),
+  "Extreme increase" = new_data(us_change, 4) %>% mutate(Income = 12),
+  names_to = "Scenario"
+)
+fcast <- forecast(fit_cons, new_cons)
+
+us_change %>%
+  autoplot(Consumption) +
+  autolayer(fcast) +
+  labs(y = "% change in US consumption")
+```
+
+## Nonlinear Regression
+
+```{r}
+boston_men <- boston_marathon %>%
+  filter(Year >= 1924) %>%
+  filter(Event == "Men's open division") %>%
+  mutate(Minutes = as.numeric(Time)/60)
+
+boston_men
+```
+```{r}
+fit_boston_men <- boston_men %>%
+  model(TSLM(Minutes ~ trend()))
+report(fit_boston_men)
+```
+
+```{r}
+augment(fit_boston_men) %>%
+  ggplot(aes(x = Year)) +
+  geom_line(aes(y = Minutes, colour = "Data")) +
+  geom_line(aes(y = .fitted, colour = "Fitted")) +
+  scale_color_manual(values = c(Data = "black", Fitted = "red"))
+
+fit_boston_men %>% gg_tsresiduals()
+```
+
+```{r}
+fit_trends <- boston_men %>%
+  model(
+    linear = TSLM(Minutes ~ trend()),
+    exponential = TSLM(log(Minutes) ~ trend()),
+    piecewise = TSLM(Minutes ~ trend(knots = c(1950, 1980)))
+  )
+fc_trends <- fit_trends %>% forecast(h = 10)
+
+boston_men %>%
+  autoplot(Minutes) +
+  geom_line(aes(y = .fitted, colour = .model), data = fitted(fit_trends)) +
+  autolayer(fc_trends, alpha = 0.5, level = 95) +
+  labs(y = "Winning times in minutes",
+       title = "Boston Marathon")
+```
+
+## Exercise
+
+### Question 1
+
+```{r}
+jan14_vic_elec <- vic_elec %>%
+  filter(yearmonth(Time) == yearmonth("2014 Jan")) %>%
+  index_by(Date = as_date(Time)) %>%
+  summarise(Demand = sum(Demand), Temperature = max(Temperature))
+
+jan14_vic_elec
+
+jan14_vic_elec %>% pivot_longer(c(Demand, Temperature), names_to = "Series") %>% ggplot(aes(x = Date, y = value)) + geom_line() + facet_grid(vars(Series), scales = "free")
+
+jan14_vic_elec %>% GGally::ggpairs(columns = 2:3)
+
+jan14_vic_elec %>%
+  ggplot(aes(x = Temperature, y = Demand)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+
+
+jan14_vic_elec %>%
+  model(TSLM(Demand ~ Temperature)) %>%
+  report()
+
+fit.consMR <- jan14_vic_elec %>%
+  model(tslm = TSLM(Demand ~ Temperature))
+report(fit.consMR)
+
+augment(fit.consMR) %>%
+  ggplot(aes(x = Date)) +
+  geom_line(aes(y = Demand, colour = "Data")) +
+  geom_line(aes(y = .fitted, colour = "Fitted")) +
+  scale_color_manual(values=c(Data="black",Fitted="red")) +
+  guides(colour = guide_legend(title = NULL))
+
+
+augment(fit.consMR) %>%
+  ggplot(aes(x = Demand, y = .fitted)) +
+  geom_point() +
+  labs(y = "Fitted (predicted values)",
+       x = "Data (actual values)") +
+  geom_abline(intercept = 0, slope = 1)
+
+
+fit.consMR %>% gg_tsresiduals()
+
+augment(fit.consMR) %>% features(.innov, ljung_box, lag = 10, dof = 5)
+
+
+df <- left_join(jan14_vic_elec, residuals(fit.consMR), by = "Date")
+p1 <- ggplot(df, aes(x = Temperature, y = .resid)) +
+  geom_point() + labs(y = "Residuals")
+
+p1
+
+jan14_vic_elec %>%
+  model(TSLM(Demand ~ Temperature)) %>%
+  forecast(
+    new_data(jan14_vic_elec, 1) %>% mutate(Temperature = 15)
+  ) %>%
+  autoplot(jan14_vic_elec)
+
+new_model <- jan14_vic_elec %>% model(TSLM(Demand ~ Temperature))
+
+future_scenarios <- scenarios(
+  Increase = new_data(jan14_vic_elec, 1) %>% mutate(Temperature = 35),
+  Decrease = new_data(jan14_vic_elec, 1) %>% mutate(Temperature = 15),
+  names_to = "Scenario")
+
+future_scenarios
+
+fc <- forecast(new_model, new_data = future_scenarios)
+
+jan14_vic_elec %>%
+  autoplot(Demand) +
+  autolayer(fc)
+
+
+vic_elec %>% ggplot(aes(x = Temperature, y = Demand)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE)
+```
+### Question 2
+```{r}
+olympic_running
+
+olympic_running %>% mutate(Length = as.factor(Length)) %>% ggplot(aes(x=Year, y=Time)) + facet_grid(rows=vars(Length),cols=vars(Sex), scales= "free") + geom_line() + geom_point()
+
+
+olympic_running %>% filter(Year >= 1950, Length == 100, Sex== "men") %>% autoplot(Time)
+
+fit_olympic_running <- olympic_running %>% filter(Year >= 1950, Length == 100, Sex== "men") %>% select(Time) %>% model(tslm = TSLM(Time ~ Year))
+
+report(fit_olympic_running)
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
